@@ -39,7 +39,9 @@ let game=new Chess(), selected=null, legalTargets=[], human='w', flipped=false, 
 const files='abcdefgh', ranks='87654321';
 function squareAt(row,col){return flipped?files[7-col]+ranks[7-row]:files[col]+ranks[row]}
 function pieceColor(p){return p?p.color:null}
+function saveState(){try{localStorage.setItem('mychess-state',JSON.stringify({moves:game.history(),human,flipped,difficulty:document.getElementById('difficulty').value,theme:document.documentElement.dataset.theme||'dark',page:learnPage.classList.contains('hidden')?'play':'learn'}))}catch(e){}}
 function render(){
+ saveState();
  boardEl.innerHTML='';const board=game.board();
  for(let row=0;row<8;row++)for(let col=0;col<8;col++){
   const sq=squareAt(row,col), piece=game.get(sq), el=document.createElement('div');
@@ -66,19 +68,33 @@ function startGame(){game=new Chess();human=document.getElementById('color').val
 document.getElementById('newGame').onclick=startGame;
 document.getElementById('undo').onclick=()=>{if(thinking)return;game.undo();if(game.turn()!==human&&!game.isGameOver())game.undo();lastMove=null;selected=null;legalTargets=[];render()};
 document.getElementById('flip').onclick=()=>{flipped=!flipped;render()};
-document.getElementById('difficulty').onchange=()=>{};
+document.getElementById('difficulty').onchange=()=>saveState();
 document.getElementById('color').onchange=startGame;
 const playPage=document.getElementById('playPage'),learnPage=document.getElementById('learnPage');
-function showPage(which){const isPlay=which==='play';playPage.classList.toggle('hidden',!isPlay);learnPage.classList.toggle('hidden',isPlay);document.getElementById('playNav').classList.toggle('active',isPlay);document.getElementById('learnNav').classList.toggle('active',!isPlay)}
+function showPage(which){const isPlay=which==='play';playPage.classList.toggle('hidden',!isPlay);learnPage.classList.toggle('hidden',isPlay);document.getElementById('playNav').classList.toggle('active',isPlay);document.getElementById('learnNav').classList.toggle('active',!isPlay);saveState()}
 document.getElementById('playNav').onclick=()=>showPage('play');document.getElementById('learnNav').onclick=()=>showPage('learn');
-document.getElementById('theme').onclick=()=>{const next=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=next;document.getElementById('theme').textContent=next==='light'?'☀':'☾';localStorage.setItem('mychess-theme',next)};
-const saved=localStorage.getItem('mychess-theme');if(saved){document.documentElement.dataset.theme=saved;document.getElementById('theme').textContent=saved==='light'?'☀':'☾'}
+document.getElementById('theme').onclick=()=>{const next=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=next;document.getElementById('theme').textContent=next==='light'?'☀':'☾';localStorage.setItem('mychess-theme',next);saveState()};
+const savedTheme=localStorage.getItem('mychess-theme');if(savedTheme){document.documentElement.dataset.theme=savedTheme;document.getElementById('theme').textContent=savedTheme==='light'?'☀':'☾'}
 const lessons={
  beginner:{title:'Beginner · Build a strong foundation',sections:[['1. The goal','Checkmate the opponent’s king. You win when the king is attacked and has no legal escape, capture, or block.'],['2. Know your pieces','Pawn moves forward (captures diagonally); knight jumps in an L; bishop travels diagonally; rook along ranks/files; queen combines rook+bishop movement; king moves one square.'],['3. Opening habits','Fight for the center, develop knights and bishops, castle to protect your king, and avoid moving the same piece repeatedly without a reason.'],['4. Before every move','Ask: Is my opponent threatening something? Is my piece safe? Can I check, capture, or create a threat?'],['Practice','Play a few games focusing only on safe development and castling early.']]},
  intermediate:{title:'Intermediate · Find plans and tactics',sections:[['1. Tactical patterns','Forks attack two targets; pins restrict a piece; skewers attack a valuable piece behind another; discovered attacks uncover a line.'],['2. Candidate moves','List 2–3 forcing moves (checks, captures, threats). Calculate each reply before choosing.'],['3. Position evaluation','Compare king safety, material, piece activity, pawn structure, space, and weak squares.'],['4. Create a plan','Improve your worst-placed piece, open a file, target a weakness, or prepare a pawn break.'],['Practice','Solve tactics slowly, then review why the other candidate moves were weaker.']]},
  advanced:{title:'Advanced · Calculate and convert',sections:[['1. Calculation discipline','Analyze forcing variations first. Track opponent resources, intermediate moves, and defensive moves—not just your intended line.'],['2. Prophylaxis','Identify the opponent’s plan. Ask what move would improve their position and prevent it when practical.'],['3. Dynamic balance','Evaluate initiative, king exposure, coordination, pawn breaks, and compensation—not material alone.'],['4. Endgame technique','Activate the king, create passed pawns, cut off the opposing king, and know key rook endgame positions.'],['Practice','Annotate serious games: candidate moves, evaluation, critical moments, and missed defensive resources.']]}
 };
 document.querySelectorAll('[data-topic]').forEach(btn=>btn.onclick=()=>{const data=lessons[btn.dataset.topic],detail=document.getElementById('lessonDetail');detail.innerHTML='<h2>'+data.title+'</h2>'+data.sections.map(([h,p])=>'<h3>'+h+'</h3><p>'+p+'</p>').join('');detail.scrollIntoView({behavior:'smooth',block:'start'})});
+// Restore saved game and settings after page refresh.
+try{
+ const saved=JSON.parse(localStorage.getItem('mychess-state')||'null');
+ if(saved){
+  human=saved.human==='b'?'b':'w';flipped=!!saved.flipped;
+  document.getElementById('color').value=human;
+  document.getElementById('difficulty').value=saved.difficulty||'2';
+  if(saved.theme){document.documentElement.dataset.theme=saved.theme;document.getElementById('theme').textContent=saved.theme==='light'?'☀':'☾'}
+  game=new Chess();for(const san of (saved.moves||[])){game.move(san)}
+  const history=game.history({verbose:true});lastMove=history.length?history[history.length-1]:null;
+  if(saved.page==='learn')showPage('learn');else showPage('play');
+  if(game.turn()!==human&&!game.isGameOver())setTimeout(botMove,250);
+ }
+}catch(e){game=new Chess();human='w';flipped=false}
 render();
 </script>
 </body></html>
